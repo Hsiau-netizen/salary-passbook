@@ -1,0 +1,1110 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>薪資存摺</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@500;700;900&family=Noto+Sans+TC:wght@400;500;700&family=Roboto+Mono:wght@400;500;700&display=swap');
+
+  :root{
+    --paper:#F5F1E6;
+    --paper-line:#DDE4D6;
+    --card:#FFFEFA;
+    --ink:#2B3530;
+    --ink-soft:#6E7B74;
+    --teal:#3A6351;
+    --teal-dark:#223C32;
+    --seal:#B5413A;
+    --gold:#B8923D;
+    --border:#D8D0BE;
+  }
+
+  *{ box-sizing:border-box; }
+
+  body{
+    margin:0;
+    font-family:'Noto Sans TC', sans-serif;
+    color:var(--ink);
+    background:
+      repeating-linear-gradient(to bottom, transparent 0 31px, var(--paper-line) 31px 32px),
+      var(--paper);
+    min-height:100vh;
+    padding-bottom:40px;
+  }
+
+  /* ---------- Cover band ---------- */
+  .cover{
+    background:
+      linear-gradient(135deg, var(--teal-dark) 0%, var(--teal) 100%);
+    color:#F4EFD9;
+    padding:28px 20px 34px;
+    text-align:center;
+    border-bottom:6px double var(--gold);
+    position:relative;
+    overflow:hidden;
+  }
+  .cover::before{
+    content:"";
+    position:absolute;
+    inset:0;
+    background:
+      repeating-linear-gradient(135deg, rgba(244,239,217,0.04) 0 2px, transparent 2px 14px);
+    pointer-events:none;
+  }
+  .cover h1{
+    font-family:'Noto Serif TC', serif;
+    font-weight:900;
+    font-size:clamp(28px, 6vw, 42px);
+    margin:0;
+    letter-spacing:0.18em;
+    text-shadow:0 1px 0 rgba(0,0,0,0.25);
+  }
+  .cover p{
+    margin:8px 0 0;
+    font-family:'Roboto Mono', monospace;
+    letter-spacing:0.35em;
+    font-size:11px;
+    color:var(--gold);
+    text-transform:uppercase;
+  }
+
+  .wrap{
+    max-width:880px;
+    margin:0 auto;
+    padding:0 16px;
+  }
+
+  /* ---------- Cards (passbook pages) ---------- */
+  .page{
+    background:var(--card);
+    border:1px solid var(--border);
+    border-left:4px solid var(--teal);
+    border-radius:4px;
+    margin-top:22px;
+    padding:22px;
+    box-shadow:0 2px 6px rgba(34,60,50,0.06);
+    position:relative;
+  }
+  .page.deduction{ border-left-color:var(--seal); }
+  .page h2{
+    font-family:'Noto Serif TC', serif;
+    font-size:17px;
+    margin:0 0 16px;
+    color:var(--teal-dark);
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:8px;
+  }
+  .page h2 .title-text{
+    display:flex; align-items:center; gap:8px;
+  }
+  .page h2 .title-text::before{
+    content:"";
+    width:6px; height:6px;
+    background:var(--seal);
+    display:inline-block;
+    border-radius:1px;
+    transform:rotate(45deg);
+  }
+  .page.deduction h2{ color:var(--seal); }
+  .page.deduction h2 .title-text::before{ background:var(--teal); }
+
+  /* ---------- Month + total ---------- */
+  .summary-row{
+    display:flex;
+    flex-wrap:wrap;
+    align-items:flex-end;
+    justify-content:space-between;
+    gap:18px;
+  }
+  .month-picker label{
+    display:block;
+    font-size:12px;
+    color:var(--ink-soft);
+    margin-bottom:6px;
+    letter-spacing:0.1em;
+  }
+  .month-picker input{
+    font-family:'Roboto Mono', monospace;
+    font-size:18px;
+    padding:8px 12px;
+    border:1px solid var(--border);
+    border-radius:4px;
+    background:var(--paper);
+    color:var(--ink);
+  }
+  .stats{
+    display:flex;
+    align-items:flex-end;
+    gap:24px;
+    flex-wrap:wrap;
+  }
+  .stat-block{
+    text-align:right;
+  }
+  .stat-block .label{
+    font-size:11px;
+    color:var(--ink-soft);
+    letter-spacing:0.12em;
+    margin-bottom:4px;
+  }
+  .stat-block .amount{
+    font-family:'Roboto Mono', monospace;
+    font-size:16px;
+    font-weight:500;
+    color:var(--ink);
+  }
+  .stat-block.deduct .amount{ color:var(--seal); }
+  .total-block{
+    text-align:right;
+    position:relative;
+    padding-right:64px;
+  }
+  .total-block .label{
+    font-size:12px;
+    color:var(--ink-soft);
+    letter-spacing:0.15em;
+    margin-bottom:4px;
+  }
+  .total-block .amount{
+    font-family:'Roboto Mono', monospace;
+    font-size:clamp(26px, 6vw, 38px);
+    font-weight:700;
+    color:var(--teal-dark);
+  }
+
+  /* ---------- Stamp (signature element) ---------- */
+  .stamp{
+    position:absolute;
+    top:50%; right:0;
+    transform:translateY(-50%) rotate(-12deg);
+    width:58px; height:58px;
+    border:3px solid var(--seal);
+    border-radius:50%;
+    color:var(--seal);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    text-align:center;
+    font-family:'Noto Serif TC', serif;
+    font-weight:700;
+    font-size:11px;
+    line-height:1.15;
+    opacity:0;
+    transition:opacity .25s ease, transform .25s ease;
+    letter-spacing:0.05em;
+    pointer-events:none;
+  }
+  .stamp.show{
+    opacity:0.85;
+    animation:stamp-press .35s ease;
+  }
+  @keyframes stamp-press{
+    0%{ transform:translateY(-50%) rotate(-12deg) scale(1.7); opacity:0; }
+    60%{ opacity:0.95; }
+    100%{ transform:translateY(-50%) rotate(-12deg) scale(1); opacity:0.85; }
+  }
+
+  /* ---------- Form grid ---------- */
+  .form-grid{
+    display:grid;
+    grid-template-columns:repeat(2, 1fr);
+    gap:12px 20px;
+  }
+  @media (min-width:640px){
+    .form-grid{ grid-template-columns:repeat(3, 1fr); }
+  }
+  .field{
+    display:flex;
+    flex-direction:column;
+    padding-bottom:2px;
+  }
+  .field label{
+    font-size:12.5px;
+    color:var(--ink-soft);
+    margin-bottom:6px;
+  }
+  .page.deduction .field label{ color:var(--seal); }
+  .field input{
+    font-family:'Roboto Mono', monospace;
+    font-size:16px;
+    font-weight:500;
+    text-align:right;
+    border:none;
+    border-bottom:1.5px solid var(--border);
+    background:var(--paper);
+    color:var(--ink);
+    padding:7px 8px;
+    border-radius:3px 3px 0 0;
+    width:100%;
+  }
+  .page.deduction .field input{ color:var(--seal); border-bottom-color:#E3B9B4; }
+  .field input::placeholder{ color:var(--ink-soft); opacity:0.45; }
+  .field input:focus{
+    outline:none;
+    color:var(--teal-dark);
+    background:#FFFEFA;
+    border-bottom-color:var(--teal);
+  }
+  .page.deduction .field input:focus{ color:var(--seal); border-bottom-color:var(--seal); }
+  .field input::-webkit-outer-spin-button,
+  .field input::-webkit-inner-spin-button{
+    -webkit-appearance:none; margin:0;
+  }
+  .field .minus-prefix::before{
+    content:"− ";
+  }
+
+  .actions{
+    margin-top:18px;
+    display:flex;
+    gap:10px;
+    flex-wrap:wrap;
+    align-items:center;
+  }
+  button{
+    font-family:'Noto Sans TC', sans-serif;
+    font-size:14px;
+    font-weight:500;
+    border:none;
+    border-radius:4px;
+    padding:10px 20px;
+    cursor:pointer;
+    transition:filter .15s ease, transform .1s ease;
+  }
+  button:active{ transform:scale(0.98); }
+  .btn-save{
+    background:var(--teal);
+    color:#F4EFD9;
+    letter-spacing:0.12em;
+  }
+  .btn-save:hover{ filter:brightness(1.08); }
+  .btn-clear{
+    background:transparent;
+    color:var(--ink-soft);
+    border:1px solid var(--border);
+  }
+  .btn-clear:hover{ color:var(--seal); border-color:var(--seal); }
+  .save-msg{
+    font-size:12.5px;
+    color:var(--teal-dark);
+    font-family:'Roboto Mono', monospace;
+  }
+
+  /* ---------- Bonus (dynamic) ---------- */
+  .btn-add{
+    background:var(--gold);
+    color:#3A2F12;
+    font-size:12.5px;
+    padding:7px 14px;
+    letter-spacing:0.06em;
+    flex-shrink:0;
+  }
+  .btn-add:hover{ filter:brightness(1.06); }
+  .bonus-list{
+    display:flex;
+    flex-direction:column;
+    gap:10px;
+  }
+  .bonus-row{
+    display:flex;
+    gap:10px;
+    align-items:center;
+    padding-bottom:2px;
+  }
+  .bonus-row input.bonus-name{
+    flex:1;
+    font-family:'Noto Sans TC', sans-serif;
+    font-size:14px;
+    border:none;
+    border-bottom:1.5px solid var(--border);
+    background:var(--paper);
+    color:var(--ink);
+    padding:8px 8px;
+    border-radius:3px 3px 0 0;
+  }
+  .bonus-row input.bonus-name::placeholder{ color:var(--ink-soft); opacity:0.55; }
+  .bonus-row input.bonus-name:focus{
+    outline:none;
+    border-bottom-color:var(--gold);
+    background:#FFFEFA;
+  }
+  .bonus-row input.bonus-amount{
+    width:120px;
+    font-family:'Roboto Mono', monospace;
+    font-size:14px;
+    font-weight:500;
+    text-align:right;
+    border:none;
+    border-bottom:1.5px solid var(--border);
+    background:var(--paper);
+    color:var(--ink);
+    padding:8px 8px;
+    border-radius:3px 3px 0 0;
+  }
+  .bonus-row input.bonus-amount::placeholder{ color:var(--ink-soft); opacity:0.45; }
+  .bonus-row input.bonus-amount:focus{ outline:none; color:var(--teal-dark); border-bottom-color:var(--gold); background:#FFFEFA; }
+  .bonus-row input::-webkit-outer-spin-button,
+  .bonus-row input::-webkit-inner-spin-button{
+    -webkit-appearance:none; margin:0;
+  }
+  .bonus-del{
+    flex-shrink:0;
+    background:none;
+    border:none;
+    color:var(--ink-soft);
+    font-size:14px;
+    padding:4px 6px;
+    font-family:'Noto Sans TC', sans-serif;
+  }
+  .bonus-del:hover{ color:var(--seal); }
+
+  /* ---------- Charts ---------- */
+  .chart-row{
+    display:grid;
+    grid-template-columns:1fr;
+    gap:22px;
+  }
+  @media (min-width:720px){
+    .chart-row{ grid-template-columns:1.4fr 1fr; }
+  }
+  .chart-box{ position:relative; height:240px; }
+  .empty-note{
+    font-size:13px;
+    color:var(--ink-soft);
+    text-align:center;
+    padding:30px 10px;
+  }
+
+  /* ---------- History ledger ---------- */
+  .ledger-row{
+    display:flex;
+    align-items:center;
+    gap:14px;
+    padding:11px 4px;
+    border-bottom:1px dotted var(--border);
+    font-family:'Roboto Mono', monospace;
+    font-size:14px;
+    cursor:pointer;
+    transition:background .15s ease;
+  }
+  .ledger-row:hover{ background:var(--paper); }
+  .ledger-row:last-child{ border-bottom:none; }
+  .ledger-month{
+    width:88px;
+    color:var(--teal-dark);
+    font-weight:700;
+    flex-shrink:0;
+  }
+  .ledger-amount{
+    flex:1;
+    text-align:right;
+    color:var(--ink);
+  }
+  .ledger-stamp{
+    flex-shrink:0;
+    width:46px; height:46px;
+    border:2px solid var(--seal);
+    border-radius:50%;
+    color:var(--seal);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-family:'Noto Serif TC', serif;
+    font-size:10px;
+    font-weight:700;
+    transform:rotate(-10deg);
+    text-align:center;
+    line-height:1.1;
+    opacity:0.8;
+  }
+  .ledger-del{
+    flex-shrink:0;
+    background:none;
+    border:none;
+    color:var(--ink-soft);
+    font-size:13px;
+    padding:6px 8px;
+    font-family:'Noto Sans TC', sans-serif;
+  }
+  .ledger-del:hover{ color:var(--seal); }
+
+  footer{
+    text-align:center;
+    font-size:11px;
+    color:var(--ink-soft);
+    margin-top:30px;
+    letter-spacing:0.1em;
+    font-family:'Roboto Mono', monospace;
+  }
+</style>
+</head>
+<body>
+
+<div class="cover">
+  <h1>薪 資 存 摺</h1>
+  <p>Monthly Salary Passbook</p>
+</div>
+
+<div class="wrap">
+
+  <!-- Connection status / setup banner -->
+  <div class="page" id="configBanner" style="display:none; border-left-color:var(--gold);">
+    <h2><span class="title-text">尚未連接 Google 試算表</span></h2>
+    <p style="font-size:13px; line-height:1.9; color:var(--ink-soft); margin:0;">
+      <span id="configBannerMsg">請先設定 Google 試算表後端。</span><br/>
+      設定方式：依照另外提供的「Code.gs」說明，在 Google 試算表建立 Apps Script 並部署為網頁應用程式，
+      接著將取得的網址貼到本檔案的 <code>CONFIG.SCRIPT_URL</code> 變數中，存檔後重新整理頁面。
+    </p>
+  </div>
+
+  <!-- Month + Total -->
+  <div class="page">
+    <h2><span class="title-text">本月紀錄</span></h2>
+    <div class="summary-row">
+      <div class="month-picker">
+        <label for="monthInput">月份</label>
+        <input type="month" id="monthInput" />
+      </div>
+      <div class="stats">
+        <div class="stat-block">
+          <div class="label">應發合計</div>
+          <div class="amount" id="grossAmount">NT$ 0</div>
+        </div>
+        <div class="stat-block deduct">
+          <div class="label">應扣合計</div>
+          <div class="amount" id="deductAmount">− NT$ 0</div>
+        </div>
+        <div class="total-block">
+          <div class="label">實領合計</div>
+          <div class="amount" id="totalAmount">NT$ 0</div>
+          <div class="stamp" id="stamp">已<br/>登錄</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Yearly summary -->
+  <div class="page">
+    <h2><span class="title-text">年度統計</span></h2>
+    <div class="summary-row">
+      <div class="month-picker">
+        <label for="yearInput">年度</label>
+        <input type="number" id="yearInput" step="1" />
+      </div>
+      <div class="stats">
+        <div class="stat-block">
+          <div class="label">年度應發合計</div>
+          <div class="amount" id="yearGross">NT$ 0</div>
+        </div>
+        <div class="stat-block">
+          <div class="label">年度實領合計</div>
+          <div class="amount" id="yearNet">NT$ 0</div>
+        </div>
+      </div>
+    </div>
+    <div class="empty-note" id="yearEmpty" style="display:none;">該年度尚無紀錄</div>
+  </div>
+
+  <!-- Input form -->
+  <div class="page">
+    <h2><span class="title-text">薪資項目</span></h2>
+    <div class="form-grid" id="formGrid"></div>
+  </div>
+
+  <!-- Custom bonuses -->
+  <div class="page">
+    <h2>
+      <span class="title-text">額外獎金（不固定）</span>
+      <button class="btn-add" id="addBonusBtn">＋ 新增獎金項目</button>
+    </h2>
+    <div class="bonus-list" id="bonusList"></div>
+    <div class="empty-note" id="bonusEmpty" style="display:none;">目前沒有額外獎金項目，點擊上方按鈕新增</div>
+  </div>
+
+  <!-- Deductions -->
+  <div class="page deduction">
+    <h2><span class="title-text">每月應扣項目</span></h2>
+    <div class="form-grid" id="deductionGrid"></div>
+  </div>
+
+  <!-- Save actions -->
+  <div class="page">
+    <div class="actions">
+      <button class="btn-save" id="saveBtn">儲存本月紀錄</button>
+      <button class="btn-clear" id="clearBtn">清空欄位</button>
+      <button class="btn-clear" id="refreshBtn">🔄 從試算表重新整理</button>
+      <span class="save-msg" id="saveMsg"></span>
+    </div>
+  </div>
+
+  <!-- Charts -->
+  <div class="page">
+    <h2><span class="title-text">月度趨勢（實領）</span></h2>
+    <div class="chart-box">
+      <canvas id="trendChart"></canvas>
+      <div class="empty-note" id="trendEmpty" style="display:none;">尚無歷史紀錄，儲存後將顯示趨勢圖</div>
+    </div>
+  </div>
+
+  <div class="page">
+    <h2><span class="title-text">本月收入項目佔比</span></h2>
+    <div class="chart-box">
+      <canvas id="breakdownChart"></canvas>
+      <div class="empty-note" id="breakdownEmpty" style="display:none;">本月尚無金額資料</div>
+    </div>
+  </div>
+
+  <!-- History -->
+  <div class="page">
+    <h2><span class="title-text">歷史紀錄</span></h2>
+    <div id="ledgerList">
+      <div class="empty-note">尚無已儲存的月份</div>
+    </div>
+  </div>
+
+</div>
+
+<footer>SALARY PASSBOOK · 資料僅儲存於您的帳戶內</footer>
+
+<script>
+const ITEMS = [
+  { key:'base',       label:'本薪' },
+  { key:'meal',       label:'伙食' },
+  { key:'license',    label:'執照加給' },
+  { key:'position',   label:'職務加給' },
+  { key:'supervisor', label:'主管加給' },
+  { key:'seniority',  label:'資深加給' },
+  { key:'transport',  label:'交通/住宿加給' },
+  { key:'overtime',   label:'加班費' },
+  { key:'bonus',      label:'獎金' },
+  { key:'attendance', label:'全勤' },
+  { key:'mealExpense',label:'誤餐費' },
+  { key:'nightShift', label:'夜班加給' },
+  { key:'other',      label:'其他' },
+];
+
+const DEDUCTION_ITEMS = [
+  { key:'laborInsurance',  label:'勞保費' },
+  { key:'healthInsurance', label:'健保費' },
+  { key:'otherDeduction',  label:'其他扣項' },
+];
+
+const COLORS = ['#3A6351','#B8923D','#B5413A','#6E7B74','#7C9885','#A98467','#5C6B66',
+                 '#C9A227','#8B5E3C','#4F6D5A','#9C6B4A','#7A8B7C','#BCA88E','#6B8E7F','#C99383'];
+
+// ---------- Google Sheets backend config ----------
+// 將下方網址換成你自己部署的 Google Apps Script 網頁應用程式網址
+// (Apps Script 編輯器 → 部署 → 新增部署作業 → 網頁應用程式 → 複製網址)
+const CONFIG = {
+  SCRIPT_URL: 'https://script.google.com/macros/s/AKfycbwZUOGyw_8NX8jaaY7CL81Hrp341hp2QAYeN5W3rvyWaQWS5VVq_jsPh9UuaLvlHven9Q/exec'
+};
+
+function isConfigured(){
+  return /^https:\/\/script\.google(usercontent)?\.com\/macros\/s\/.+\/exec$/.test(CONFIG.SCRIPT_URL);
+}
+
+const fmt = n => 'NT$ ' + Math.round(n || 0).toLocaleString('zh-TW');
+const fmtMinus = n => '− NT$ ' + Math.round(n || 0).toLocaleString('zh-TW');
+
+function currentMonthStr(){
+  const d = new Date();
+  return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0');
+}
+
+const monthInput = document.getElementById('monthInput');
+const formGrid = document.getElementById('formGrid');
+const deductionGrid = document.getElementById('deductionGrid');
+const bonusList = document.getElementById('bonusList');
+const bonusEmpty = document.getElementById('bonusEmpty');
+const grossAmount = document.getElementById('grossAmount');
+const deductAmount = document.getElementById('deductAmount');
+const totalAmount = document.getElementById('totalAmount');
+const stampEl = document.getElementById('stamp');
+const saveMsg = document.getElementById('saveMsg');
+const ledgerList = document.getElementById('ledgerList');
+const yearInput = document.getElementById('yearInput');
+const yearGross = document.getElementById('yearGross');
+const yearNet = document.getElementById('yearNet');
+const yearEmpty = document.getElementById('yearEmpty');
+const configBanner = document.getElementById('configBanner');
+const configBannerMsg = document.getElementById('configBannerMsg');
+const refreshBtn = document.getElementById('refreshBtn');
+
+let trendChartInstance = null;
+let breakdownChartInstance = null;
+let bonusIdCounter = 0;
+let allRecords = [];
+
+// build income fields
+ITEMS.forEach(item => {
+  const field = document.createElement('div');
+  field.className = 'field';
+  field.innerHTML = `
+    <label for="f_${item.key}">${item.label}</label>
+    <input type="number" inputmode="decimal" min="0" step="1" placeholder="0" id="f_${item.key}" />
+  `;
+  formGrid.appendChild(field);
+  field.querySelector('input').addEventListener('input', updateTotalDisplay);
+});
+
+// build deduction fields
+DEDUCTION_ITEMS.forEach(item => {
+  const field = document.createElement('div');
+  field.className = 'field';
+  field.innerHTML = `
+    <label for="d_${item.key}" class="minus-prefix">${item.label}</label>
+    <input type="number" inputmode="decimal" min="0" step="1" placeholder="0" id="d_${item.key}" />
+  `;
+  deductionGrid.appendChild(field);
+  field.querySelector('input').addEventListener('input', updateTotalDisplay);
+});
+
+// ---------- bonus rows ----------
+function addBonusRow(name = '', amount = ''){
+  const id = 'bonus_' + (bonusIdCounter++);
+  const row = document.createElement('div');
+  row.className = 'bonus-row';
+  row.dataset.id = id;
+  row.innerHTML = `
+    <input type="text" class="bonus-name" placeholder="獎金名稱（例如：年終獎金）" value="${escapeHtml(name)}" />
+    <input type="number" class="bonus-amount" inputmode="decimal" min="0" step="1" placeholder="0" value="${amount}" />
+    <button class="bonus-del" title="刪除">✕</button>
+  `;
+  row.querySelector('.bonus-amount').addEventListener('input', updateTotalDisplay);
+  row.querySelector('.bonus-name').addEventListener('input', () => renderBreakdownChart(...buildIncomeBreakdown()));
+  row.querySelector('.bonus-del').addEventListener('click', () => {
+    row.remove();
+    toggleBonusEmpty();
+    updateTotalDisplay();
+  });
+  bonusList.appendChild(row);
+  toggleBonusEmpty();
+}
+
+function toggleBonusEmpty(){
+  bonusEmpty.style.display = bonusList.children.length ? 'none' : 'block';
+}
+
+function escapeHtml(str){
+  const div = document.createElement('div');
+  div.textContent = str;
+  return div.innerHTML;
+}
+
+document.getElementById('addBonusBtn').addEventListener('click', () => addBonusRow());
+
+function getBonusValues(){
+  return [...bonusList.querySelectorAll('.bonus-row')].map(row => {
+    const name = row.querySelector('.bonus-name').value.trim();
+    const amount = parseFloat(row.querySelector('.bonus-amount').value);
+    return { name, amount: isNaN(amount) ? 0 : amount };
+  });
+}
+
+function setBonusValues(bonuses){
+  bonusList.innerHTML = '';
+  (bonuses || []).forEach(b => addBonusRow(b.name, b.amount));
+  toggleBonusEmpty();
+}
+
+// ---------- value getters ----------
+function getFormValues(){
+  const values = {};
+  ITEMS.forEach(item => {
+    const v = parseFloat(document.getElementById('f_' + item.key).value);
+    values[item.key] = isNaN(v) ? 0 : v;
+  });
+  return values;
+}
+
+function getDeductionValues(){
+  const values = {};
+  DEDUCTION_ITEMS.forEach(item => {
+    const v = parseFloat(document.getElementById('d_' + item.key).value);
+    values[item.key] = isNaN(v) ? 0 : v;
+  });
+  return values;
+}
+
+function setFormValues(values){
+  ITEMS.forEach(item => {
+    const v = values && values[item.key] ? values[item.key] : '';
+    document.getElementById('f_' + item.key).value = v;
+  });
+}
+
+function setDeductionValues(values){
+  DEDUCTION_ITEMS.forEach(item => {
+    const v = values && values[item.key] ? values[item.key] : '';
+    document.getElementById('d_' + item.key).value = v;
+  });
+}
+
+function clearForm(){
+  ITEMS.forEach(item => {
+    document.getElementById('f_' + item.key).value = '';
+  });
+  DEDUCTION_ITEMS.forEach(item => {
+    document.getElementById('d_' + item.key).value = '';
+  });
+  setBonusValues([]);
+}
+
+// ---------- calculations ----------
+function calcGross(values, bonuses){
+  const itemsTotal = ITEMS.reduce((sum, item) => sum + (values[item.key] || 0), 0);
+  const bonusTotal = bonuses.reduce((sum, b) => sum + (b.amount || 0), 0);
+  return itemsTotal + bonusTotal;
+}
+
+function calcDeductionTotal(deductions){
+  return DEDUCTION_ITEMS.reduce((sum, item) => sum + (deductions[item.key] || 0), 0);
+}
+
+function updateTotalDisplay(){
+  const values = getFormValues();
+  const deductions = getDeductionValues();
+  const bonuses = getBonusValues();
+  const gross = calcGross(values, bonuses);
+  const deductTotal = calcDeductionTotal(deductions);
+  const net = gross - deductTotal;
+
+  grossAmount.textContent = fmt(gross);
+  deductAmount.textContent = fmtMinus(deductTotal);
+  totalAmount.textContent = fmt(net);
+
+  renderBreakdownChart(values, bonuses);
+}
+
+function buildIncomeBreakdown(){
+  return [getFormValues(), getBonusValues()];
+}
+
+// ---------- storage helpers (Google Sheets via Apps Script) ----------
+function showConfigBanner(show, message){
+  if(!configBanner) return;
+  if(show){
+    configBanner.style.display = 'block';
+    if(message) configBannerMsg.textContent = message;
+  }else{
+    configBanner.style.display = 'none';
+  }
+}
+
+function loadMonth(month){
+  return allRecords.find(r => r.month === month) || null;
+}
+
+async function fetchAllRecords(){
+  if(!isConfigured()){
+    showConfigBanner(true, '請先在檔案中設定 CONFIG.SCRIPT_URL，填入你部署的 Google Apps Script 網頁應用程式網址。');
+    return [];
+  }
+  try{
+    const res = await fetch(CONFIG.SCRIPT_URL + '?action=list');
+    if(!res.ok) throw new Error('HTTP ' + res.status);
+    const data = await res.json();
+    if(data.error) throw new Error(data.error);
+    showConfigBanner(false);
+    const records = (data.records || []).slice();
+    records.sort((a,b) => a.month < b.month ? 1 : -1); // newest first
+    return records;
+  }catch(e){
+    showConfigBanner(true, '無法連接到 Google 試算表，請確認網址正確，且部署設定為「具有存取權的使用者：任何人」。');
+    return [];
+  }
+}
+
+async function postAction(payload){
+  if(!isConfigured()){
+    throw new Error('not configured');
+  }
+  const res = await fetch(CONFIG.SCRIPT_URL, {
+    method:'POST',
+    body: JSON.stringify(payload)
+  });
+  if(!res.ok) throw new Error('HTTP ' + res.status);
+  const data = await res.json();
+  if(data.error) throw new Error(data.error);
+  return data;
+}
+
+async function saveMonth(month, values, deductions, bonuses){
+  const gross = calcGross(values, bonuses);
+  const deductTotal = calcDeductionTotal(deductions);
+  const total = gross - deductTotal;
+  const record = { month, values, deductions, bonuses, gross, deductTotal, total };
+  await postAction({ action:'save', record });
+  return record;
+}
+
+async function deleteMonth(month){
+  await postAction({ action:'delete', month });
+}
+
+async function listAllMonths(){
+  return await fetchAllRecords();
+}
+
+// ---------- stamp ----------
+async function refreshStamp(month){
+  const data = loadMonth(month);
+  if(data){
+    stampEl.classList.add('show');
+  }else{
+    stampEl.classList.remove('show');
+  }
+}
+
+// ---------- ledger list ----------
+function renderLedger(records){
+  if(!records.length){
+    ledgerList.innerHTML = '<div class="empty-note">尚無已儲存的月份</div>';
+    return;
+  }
+  ledgerList.innerHTML = '';
+  records.forEach(rec => {
+    const row = document.createElement('div');
+    row.className = 'ledger-row';
+    row.innerHTML = `
+      <div class="ledger-month">${rec.month}</div>
+      <div class="ledger-amount">${fmt(rec.total)}</div>
+      <div class="ledger-stamp">已<br/>登錄</div>
+      <button class="ledger-del" title="刪除">✕</button>
+    `;
+    row.addEventListener('click', (e) => {
+      if(e.target.classList.contains('ledger-del')) return;
+      monthInput.value = rec.month;
+      loadAndRender(rec.month);
+    });
+    row.querySelector('.ledger-del').addEventListener('click', async (e) => {
+      e.stopPropagation();
+      if(!confirm(`確定要刪除 ${rec.month} 的紀錄嗎？`)) return;
+      await deleteMonth(rec.month);
+      await refreshAll();
+    });
+    ledgerList.appendChild(row);
+  });
+}
+
+// ---------- charts ----------
+function renderTrendChart(records){
+  const trendEmpty = document.getElementById('trendEmpty');
+  const canvas = document.getElementById('trendChart');
+  if(!records.length){
+    canvas.style.display = 'none';
+    trendEmpty.style.display = 'block';
+    if(trendChartInstance){ trendChartInstance.destroy(); trendChartInstance = null; }
+    return;
+  }
+  canvas.style.display = 'block';
+  trendEmpty.style.display = 'none';
+
+  const sorted = [...records].sort((a,b) => a.month < b.month ? -1 : 1);
+  const labels = sorted.map(r => r.month);
+  const data = sorted.map(r => r.total);
+
+  if(trendChartInstance) trendChartInstance.destroy();
+  trendChartInstance = new Chart(canvas, {
+    type:'line',
+    data:{
+      labels,
+      datasets:[{
+        label:'實領總額',
+        data,
+        borderColor:'#3A6351',
+        backgroundColor:'rgba(58,99,81,0.12)',
+        pointBackgroundColor:'#B5413A',
+        pointRadius:4,
+        tension:0.25,
+        fill:true,
+      }]
+    },
+    options:{
+      responsive:true,
+      maintainAspectRatio:false,
+      plugins:{
+        legend:{ display:false },
+        tooltip:{
+          callbacks:{ label: ctx => fmt(ctx.parsed.y) }
+        }
+      },
+      scales:{
+        y:{
+          ticks:{
+            callback:v => 'NT$' + Number(v).toLocaleString('zh-TW'),
+            font:{ family:"'Roboto Mono', monospace", size:10 }
+          },
+          grid:{ color:'#EAE4D6' }
+        },
+        x:{
+          ticks:{ font:{ family:"'Roboto Mono', monospace", size:10 } },
+          grid:{ display:false }
+        }
+      }
+    }
+  });
+}
+
+function renderBreakdownChart(values, bonuses){
+  bonuses = bonuses || getBonusValues();
+  const breakdownEmpty = document.getElementById('breakdownEmpty');
+  const canvas = document.getElementById('breakdownChart');
+
+  const itemEntries = ITEMS.map((item, i) => ({
+    label:item.label,
+    value:values[item.key] || 0,
+    color:COLORS[i % COLORS.length]
+  }));
+
+  const bonusEntries = bonuses.map((b, i) => ({
+    label: b.name || '未命名獎金',
+    value: b.amount || 0,
+    color: COLORS[(ITEMS.length + i) % COLORS.length]
+  }));
+
+  const entries = [...itemEntries, ...bonusEntries].filter(e => e.value > 0);
+
+  if(!entries.length){
+    canvas.style.display = 'none';
+    breakdownEmpty.style.display = 'block';
+    if(breakdownChartInstance){ breakdownChartInstance.destroy(); breakdownChartInstance = null; }
+    return;
+  }
+  canvas.style.display = 'block';
+  breakdownEmpty.style.display = 'none';
+
+  if(breakdownChartInstance) breakdownChartInstance.destroy();
+  breakdownChartInstance = new Chart(canvas, {
+    type:'doughnut',
+    data:{
+      labels: entries.map(e => e.label),
+      datasets:[{
+        data: entries.map(e => e.value),
+        backgroundColor: entries.map(e => e.color),
+        borderColor:'#FFFEFA',
+        borderWidth:2,
+      }]
+    },
+    options:{
+      responsive:true,
+      maintainAspectRatio:false,
+      plugins:{
+        legend:{
+          position:'right',
+          labels:{
+            font:{ family:"'Noto Sans TC', sans-serif", size:11 },
+            boxWidth:12,
+          }
+        },
+        tooltip:{
+          callbacks:{ label: ctx => `${ctx.label}: ${fmt(ctx.parsed)}` }
+        }
+      }
+    }
+  });
+}
+
+// ---------- yearly summary ----------
+function renderYearlySummary(){
+  const year = String(yearInput.value || new Date().getFullYear());
+  const recordsInYear = allRecords.filter(r => r.month.startsWith(year + '-'));
+
+  if(!recordsInYear.length){
+    yearEmpty.style.display = 'block';
+    yearGross.textContent = fmt(0);
+    yearNet.textContent = fmt(0);
+    return;
+  }
+  yearEmpty.style.display = 'none';
+
+  const grossSum = recordsInYear.reduce((sum, r) => sum + (r.gross != null ? r.gross : r.total), 0);
+  const netSum = recordsInYear.reduce((sum, r) => sum + r.total, 0);
+
+  yearGross.textContent = fmt(grossSum);
+  yearNet.textContent = fmt(netSum);
+}
+
+yearInput.addEventListener('input', renderYearlySummary);
+
+// ---------- main flows ----------
+async function loadAndRender(month){
+  const data = loadMonth(month);
+  if(data){
+    setFormValues(data.values);
+    setDeductionValues(data.deductions || {});
+    setBonusValues(data.bonuses || []);
+  }else{
+    clearForm();
+  }
+  updateTotalDisplay();
+  await refreshStamp(month);
+}
+
+async function refreshAll(){
+  allRecords = await fetchAllRecords();
+  renderLedger(allRecords);
+  renderTrendChart(allRecords);
+  renderYearlySummary();
+  await refreshStamp(monthInput.value);
+}
+
+if(refreshBtn){
+  refreshBtn.addEventListener('click', async () => {
+    saveMsg.textContent = '正在從試算表重新整理...';
+    saveMsg.style.color = '';
+    await refreshAll();
+    await loadAndRender(monthInput.value);
+    saveMsg.textContent = '已從試算表重新整理';
+  });
+}
+
+document.getElementById('saveBtn').addEventListener('click', async () => {
+  const month = monthInput.value;
+  if(!month){
+    saveMsg.style.color = '#B5413A';
+    saveMsg.textContent = '請先選擇月份';
+    return;
+  }
+  const values = getFormValues();
+  const deductions = getDeductionValues();
+  const bonuses = getBonusValues().filter(b => b.name || b.amount);
+  saveMsg.style.color = '';
+  saveMsg.textContent = '儲存中...';
+  try{
+    await saveMonth(month, values, deductions, bonuses);
+    saveMsg.style.color = '';
+    saveMsg.textContent = `已儲存 ${month} 的紀錄到 Google 試算表`;
+    await refreshAll();
+  }catch(e){
+    saveMsg.style.color = '#B5413A';
+    saveMsg.textContent = '儲存失敗，請確認 Google 試算表連線設定';
+  }
+});
+
+document.getElementById('clearBtn').addEventListener('click', () => {
+  clearForm();
+  updateTotalDisplay();
+  saveMsg.textContent = '';
+});
+
+monthInput.addEventListener('change', () => {
+  saveMsg.textContent = '';
+  loadAndRender(monthInput.value);
+});
+
+// ---------- init ----------
+(async function init(){
+  monthInput.value = currentMonthStr();
+  yearInput.value = new Date().getFullYear();
+  await refreshAll();
+  await loadAndRender(monthInput.value);
+})();
+</script>
+
+</body>
+</html>
